@@ -1,24 +1,22 @@
 import { useState, useRef, useEffect } from 'react';
 import { Phone, Video, MoreVertical, Send, Smile, Paperclip } from 'lucide-react';
 import { format } from 'date-fns';
-import type { Contact, Message } from '../types/chat';
+import type { User, Message } from '../types/chat';
 
 interface ChatAreaProps {
-    activeContact: Contact;
+    currentUser: User | null;
+    activeUser: User | null;
     messages: Message[];
+    loading: boolean;
     onSendMessage: (text: string) => void;
 }
 
-export function ChatArea({ activeContact, messages, onSendMessage }: ChatAreaProps) {
+export function ChatArea({ currentUser, activeUser, messages, loading, onSendMessage }: ChatAreaProps) {
     const [inputValue, setInputValue] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    };
-
     useEffect(() => {
-        scrollToBottom();
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
     const handleSendMessage = () => {
@@ -34,17 +32,30 @@ export function ChatArea({ activeContact, messages, onSendMessage }: ChatAreaPro
         }
     };
 
+    if (!activeUser) {
+        return (
+            <div className="chat-area chat-area--empty">
+                <div className="empty-chat-state">
+                    <div className="empty-chat-icon">💬</div>
+                    <h3>Select a conversation</h3>
+                    <p>Pick someone from the sidebar to start chatting</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="chat-area">
             <div className="chat-header">
                 <div className="chat-header-info">
                     <div className="avatar" style={{ width: 40, height: 40, marginRight: 12 }}>
-                        <img src={activeContact.avatar} alt={activeContact.name} />
-                        <div className={`status-indicator status-${activeContact.status}`}></div>
+                        <img
+                            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(activeUser.name)}`}
+                            alt={activeUser.name}
+                        />
                     </div>
                     <div className="chat-header-text">
-                        <h3>{activeContact.name}</h3>
-                        <p>{activeContact.status === 'online' ? 'Online' : 'Offline'}</p>
+                        <h3>{activeUser.name}</h3>
                     </div>
                 </div>
                 <div className="header-actions">
@@ -55,15 +66,24 @@ export function ChatArea({ activeContact, messages, onSendMessage }: ChatAreaPro
             </div>
 
             <div className="messages-container">
+                {loading && (
+                    <div className="messages-loading">
+                        <span className="spinner" />
+                        <span>Loading messages…</span>
+                    </div>
+                )}
+                {!loading && messages.length === 0 && (
+                    <div className="no-messages">
+                        <p>No messages yet. Say hello! 👋</p>
+                    </div>
+                )}
                 {messages.map(msg => {
-                    const isMe = msg.senderId === 'me';
+                    const isMe = msg.senderId === currentUser?.id;
                     return (
                         <div key={msg.id} className={`message-wrapper ${isMe ? 'sent' : 'received'}`}>
-                            <div className="message-bubble">
-                                {msg.text}
-                            </div>
+                            <div className="message-bubble">{msg.content}</div>
                             <div className="message-time">
-                                {format(msg.timestamp, 'hh:mm a')}
+                                {format(new Date(msg.createdAt), 'hh:mm a')}
                             </div>
                         </div>
                     );

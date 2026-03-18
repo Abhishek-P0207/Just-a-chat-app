@@ -1,15 +1,19 @@
-export interface Contact {
-    id: number | string;
+export interface User {
+    id: string;
     name: string;
-    avatar: string;
-    status: 'online' | 'offline';
-    lastMessage: string;
-    time: string;
+    createdAt: string;
 }
 
 export interface Message {
-    id: number | string;
-    senderId: number | string;
-    text: string;
-    timestamp: Date;
+    id: string;
+    convId: string;
+    senderId: string;
+    content: string;
+    createdAt: string;
+    sender: { id: string; name: string };
+}
+
+export interface Conversation {
+    id: string;
+    type: string;
 }

@@ -1,0 +1,39 @@
+import type { User, Message } from "./types/chat";
+
+const BASE = "http://localhost:3000/api";
+
+export async function registerUser(name: string): Promise<User> {
+    const res = await fetch(`${BASE}/users/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error ?? "Registration failed");
+    }
+    return res.json();
+}
+
+export async function getUsers(): Promise<User[]> {
+    const res = await fetch(`${BASE}/users`);
+    if (!res.ok) throw new Error("Failed to fetch users");
+    return res.json();
+}
+
+export async function getDmConversationId(userId1: string, userId2: string): Promise<string> {
+    const res = await fetch(`${BASE}/conversations/dm`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId1, userId2 }),
+    });
+    if (!res.ok) throw new Error("Failed to get/create conversation");
+    const data: { conversationId: string } = await res.json();
+    return data.conversationId;
+}
+
+export async function getMessages(convId: string): Promise<Message[]> {
+    const res = await fetch(`${BASE}/conversations/${convId}/messages`);
+    if (!res.ok) throw new Error("Failed to fetch messages");
+    return res.json();
+}
