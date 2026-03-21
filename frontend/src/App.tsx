@@ -2,8 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { ChatArea } from './components/ChatArea';
 import { UsernameModal } from './components/UsernameModal';
-import type { User, Message } from './types/chat';
-import { getUsers, getDmConversationId, getMessages } from './api';
+import type { User, Message, Group } from './types/chat';
+import { getUsers, getDmConversationId, getMessages, getGroups } from './api';
 import { io, Socket } from 'socket.io-client';
 
 function App() {
@@ -12,7 +12,14 @@ function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
+
+  // DM state
   const [activeUser, setActiveUser] = useState<User | null>(null);
+
+  // Group state
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [activeGroup, setActiveGroup] = useState<Group | null>(null);
+
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -20,15 +27,14 @@ function App() {
   // Connect socket once on mount
   useEffect(() => {
     socketRef.current = io('http://localhost:3000');
-
     return () => {
       socketRef.current?.disconnect();
     };
   }, []);
 
+  // Online users
   useEffect(() => {
     if (!socketRef.current) return;
-
     const handler = async (ids: string[]) => {
       setOnlineUserIds(new Set(ids));
       if (currentUser) {
@@ -40,48 +46,87 @@ function App() {
         }
       }
     };
-
     socketRef.current.on('onlineUsers', handler);
-    return () => {
-      socketRef.current?.off('onlineUsers', handler);
-    };
+    return () => { socketRef.current?.off('onlineUsers', handler); };
   }, [currentUser]);
 
-  // Listen for incoming messages
+  // joinGroup event: server notifies that a group was created and we're a member
   useEffect(() => {
     if (!socketRef.current) return;
+    const handler = (group: Group) => {
+      setGroups(prev => {
+        if (prev.some(g => g.id === group.id)) return prev;
+        return [group, ...prev];
+      });
+    };
+    socketRef.current.on('joinGroup', handler);
+    return () => { socketRef.current?.off('joinGroup', handler); };
+  }, []);
 
+  // Incoming DM messages
+  useEffect(() => {
+    if (!socketRef.current) return;
     const handler = (msg: Message) => {
-      // Only append if this message belongs to the active conversation
       setMessages(prev => {
-        if (prev.some(m => m.id === msg.id)) return prev; // deduplicate
-        if (msg.convId === activeConvId) {
-          return [...prev, msg];
-        }
+        if (prev.some(m => m.id === msg.id)) return prev;
+        if (msg.convId === activeConvId) return [...prev, msg];
         return prev;
       });
     };
-
     socketRef.current.on('chat', handler);
-    return () => {
-      socketRef.current?.off('chat', handler);
-    };
+    return () => { socketRef.current?.off('chat', handler); };
   }, [activeConvId]);
 
-  // After login: register socket, fetch user list
+  // Incoming group messages
+  useEffect(() => {
+    if (!socketRef.current) return;
+    const handler = (msg: Message) => {
+      setMessages(prev => {
+        if (prev.some(m => m.id === msg.id)) return prev;
+        if (msg.convId === activeConvId) return [...prev, msg];
+        return prev;
+      });
+    };
+    socketRef.current.on('group-chat', handler);
+    return () => { socketRef.current?.off('group-chat', handler); };
+  }, [activeConvId]);
+
+  // After login: register socket, fetch users and groups
   const handleRegistered = useCallback(async (user: User) => {
     setCurrentUser(user);
     socketRef.current?.emit('register', user.id);
 
-    const allUsers = await getUsers();
-    // Exclude self from sidebar
-    setUsers(allUsers.filter(u => u.id !== user.id));
+    try {
+      const [allUsers, userGroups] = await Promise.all([
+        getUsers(),
+        getGroups(user.id),
+      ]);
+      setUsers(allUsers.filter(u => u.id !== user.id));
+      setGroups(userGroups);
+    } catch (err) {
+      console.error('Failed to load initial data:', err);
+    }
   }, []);
 
-  // Select a contact → get/create DM conversation and load history
+  // Called by Sidebar after a group is created via <CreateGroup>
+  const handleGroupRegistered = useCallback((group: Group) => {
+    // Join the socket room for this group
+    socketRef.current?.emit('createGroup', {
+      groupId: group.id,
+      name: group.name,
+      members: group.memberIds,
+    });
+    setGroups(prev => {
+      if (prev.some(g => g.id === group.id)) return prev;
+      return [group, ...prev];
+    });
+  }, []);
+
+  // Select a DM contact
   const handleSelectUser = useCallback(async (user: User) => {
     if (!currentUser) return;
     setActiveUser(user);
+    setActiveGroup(null);
     setMessages([]);
     setLoadingMessages(true);
     try {
@@ -96,6 +141,24 @@ function App() {
     }
   }, [currentUser]);
 
+  // Select a group
+  const handleSelectGroup = useCallback(async (group: Group) => {
+    setActiveGroup(group);
+    setActiveUser(null);
+    setMessages([]);
+    setLoadingMessages(true);
+    try {
+      setActiveConvId(group.id);
+      const history = await getMessages(group.id);
+      setMessages(history);
+    } catch (err) {
+      console.error('Failed to open group conversation:', err);
+    } finally {
+      setLoadingMessages(false);
+    }
+  }, []);
+
+  // Send a DM
   const handleSendMessage = useCallback((text: string) => {
     if (!currentUser || !activeUser || !activeConvId) return;
     socketRef.current?.emit('chat', {
@@ -104,8 +167,17 @@ function App() {
       senderId: currentUser.id,
       toUserId: activeUser.id,
     });
-    // Optimistic message will be replaced by the echo from server (deduplicated by id)
   }, [currentUser, activeUser, activeConvId]);
+
+  // Send a group message
+  const handleSendGroupMessage = useCallback((text: string) => {
+    if (!currentUser || !activeGroup || !activeConvId) return;
+    socketRef.current?.emit('group-chat', {
+      convId: activeConvId,
+      content: text,
+      senderId: currentUser.id,
+    });
+  }, [currentUser, activeGroup, activeConvId]);
 
   return (
     <>
@@ -116,13 +188,19 @@ function App() {
           activeUserId={activeUser?.id ?? null}
           onlineUserIds={onlineUserIds}
           onSelectUser={handleSelectUser}
+          onGroupRegister={handleGroupRegistered}
+          groups={groups}
+          activeGroupId={activeGroup?.id ?? null}
+          onSelectGroup={handleSelectGroup}
+          currentUser={currentUser}
         />
         <ChatArea
           currentUser={currentUser}
           activeUser={activeUser}
+          activeGroup={activeGroup}
           messages={messages}
           loading={loadingMessages}
-          onSendMessage={handleSendMessage}
+          onSendMessage={activeGroup ? handleSendGroupMessage : handleSendMessage}
         />
       </div>
     </>

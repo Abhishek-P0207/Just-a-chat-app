@@ -17,3 +17,10 @@ export interface Conversation {
     id: string;
     type: string;
 }
+
+export interface Group {
+    id: string;
+    name: string;
+    memberIds: string[];
+    createdAt: string;
+}

@@ -14,6 +14,7 @@ router.post("/dm", async (req, res) => {
         return;
     }
     const conversation = await getOrCreateDmConversation(userId1, userId2);
+    console.log(conversation);
     res.json({ conversationId: conversation.id });
 });
 
@@ -21,7 +22,9 @@ router.post("/dm", async (req, res) => {
 router.get("/:convId/messages", async (req, res) => {
     const { convId } = req.params;
     const messages = await getConversationMessages(convId);
+    console.log(messages);
     res.json(messages);
 });
+
 
 export default router;

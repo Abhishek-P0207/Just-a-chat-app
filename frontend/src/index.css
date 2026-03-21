@@ -8,10 +8,10 @@
   --accent-color: #3b82f6;
   --accent-hover: #2563eb;
   --danger-color: #ef4444;
-  
+
   --sent-msg: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   --received-msg: rgba(30, 41, 59, 0.8);
-  
+
   --border-radius-lg: 16px;
   --border-radius-md: 12px;
   --border-radius-sm: 8px;
@@ -28,7 +28,7 @@
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background-color: var(--bg-dark);
-  background-image: 
+  background-image:
     radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.15), transparent 25%),
     radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.15), transparent 25%);
   color: var(--text-primary);
@@ -63,13 +63,16 @@ body {
   width: 6px;
   height: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 4px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
 }
@@ -87,6 +90,7 @@ body {
 
 /* Sidebar Styling */
 .sidebar {
+  position: relative;
   width: 320px;
   display: flex;
   flex-direction: column;
@@ -195,6 +199,36 @@ body {
   object-fit: cover;
 }
 
+.fab-new-group {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background-color: #007bff;
+  /* Replace with your primary theme color */
+  color: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+  z-index: 10;
+  /* Ensures it stays above the contact list */
+}
+
+.fab-new-group:hover {
+  background-color: #0056b3;
+  transform: scale(1.05);
+}
+
+.fab-new-group:active {
+  transform: scale(0.95);
+}
+
 .status-indicator {
   position: absolute;
   bottom: 0;
@@ -206,8 +240,13 @@ body {
   z-index: 2;
 }
 
-.status-online { background-color: #10b981; }
-.status-offline { background-color: var(--text-secondary); }
+.status-online {
+  background-color: #10b981;
+}
+
+.status-offline {
+  background-color: var(--text-secondary);
+}
 
 .contact-info {
   flex: 1;
@@ -324,8 +363,15 @@ body {
 }
 
 @keyframes slideIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .message-wrapper.sent {
@@ -463,8 +509,13 @@ body {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 .modal-card {
@@ -480,8 +531,15 @@ body {
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(24px) scale(0.97); }
-  to   { opacity: 1; transform: translateY(0)  scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .modal-icon {
@@ -584,7 +642,9 @@ body {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* === Online Badge === */
@@ -681,4 +741,24 @@ body {
   color: var(--text-secondary);
   font-size: 0.9rem;
   opacity: 0.6;
+}
+
+/* === Groups section label in sidebar === */
+.contact-section-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  padding: 12px 12px 4px;
+  opacity: 0.7;
+}
+
+/* === Sender name above received group messages === */
+.message-sender-name {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent-color);
+  margin-bottom: 3px;
+  padding-left: 4px;
 }

@@ -1,23 +1,29 @@
 import { useState, useRef, useEffect } from 'react';
-import { Phone, Video, MoreVertical, Send, Smile, Paperclip } from 'lucide-react';
+import { Phone, Video, MoreVertical, Send, Smile, Paperclip, Users } from 'lucide-react';
 import { format } from 'date-fns';
-import type { User, Message } from '../types/chat';
+import type { User, Message, Group } from '../types/chat';
 
 interface ChatAreaProps {
     currentUser: User | null;
     activeUser: User | null;
+    activeGroup: Group | null;
     messages: Message[];
     loading: boolean;
     onSendMessage: (text: string) => void;
 }
 
-export function ChatArea({ currentUser, activeUser, messages, loading, onSendMessage }: ChatAreaProps) {
+export function ChatArea({ currentUser, activeUser, activeGroup, messages, loading, onSendMessage }: ChatAreaProps) {
     const [inputValue, setInputValue] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
+
+    // Clear input when conversation changes
+    useEffect(() => {
+        setInputValue('');
+    }, [activeUser?.id, activeGroup?.id]);
 
     const handleSendMessage = () => {
         if (!inputValue.trim()) return;
@@ -32,7 +38,9 @@ export function ChatArea({ currentUser, activeUser, messages, loading, onSendMes
         }
     };
 
-    if (!activeUser) {
+    const isActive = activeUser !== null || activeGroup !== null;
+
+    if (!isActive) {
         return (
             <div className="chat-area chat-area--empty">
                 <div className="empty-chat-state">
@@ -44,18 +52,30 @@ export function ChatArea({ currentUser, activeUser, messages, loading, onSendMes
         );
     }
 
+    // Determine title and avatar for the header
+    const headerName = activeGroup ? activeGroup.name : activeUser!.name;
+    const headerAvatarSeed = activeGroup
+        ? `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(activeGroup.name)}`
+        : `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(activeUser!.name)}`;
+    const headerSubtitle = activeGroup
+        ? `${activeGroup.memberIds.length} members`
+        : null;
+
     return (
         <div className="chat-area">
             <div className="chat-header">
                 <div className="chat-header-info">
                     <div className="avatar" style={{ width: 40, height: 40, marginRight: 12 }}>
-                        <img
-                            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(activeUser.name)}`}
-                            alt={activeUser.name}
-                        />
+                        <img src={headerAvatarSeed} alt={headerName} />
+                        {activeGroup && (
+                            <div className="status-indicator" style={{ background: 'var(--accent, #6c63ff)' }}>
+                                <Users size={8} style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)' }} />
+                            </div>
+                        )}
                     </div>
                     <div className="chat-header-text">
-                        <h3>{activeUser.name}</h3>
+                        <h3>{headerName}</h3>
+                        {headerSubtitle && <span style={{ fontSize: '12px', opacity: 0.65 }}>{headerSubtitle}</span>}
                     </div>
                 </div>
                 <div className="header-actions">
@@ -81,6 +101,9 @@ export function ChatArea({ currentUser, activeUser, messages, loading, onSendMes
                     const isMe = msg.senderId === currentUser?.id;
                     return (
                         <div key={msg.id} className={`message-wrapper ${isMe ? 'sent' : 'received'}`}>
+                            {activeGroup && !isMe && (
+                                <div className="message-sender-name">{msg.sender?.name}</div>
+                            )}
                             <div className="message-bubble">{msg.content}</div>
                             <div className="message-time">
                                 {format(new Date(msg.createdAt), 'hh:mm a')}
@@ -98,7 +121,7 @@ export function ChatArea({ currentUser, activeUser, messages, loading, onSendMes
                     </button>
                     <textarea
                         className="message-input"
-                        placeholder="Type a message..."
+                        placeholder={activeGroup ? `Message ${headerName}…` : "Type a message..."}
                         value={inputValue}
                         onChange={(e) => setInputValue(e.target.value)}
                         onKeyDown={handleKeyPress}
