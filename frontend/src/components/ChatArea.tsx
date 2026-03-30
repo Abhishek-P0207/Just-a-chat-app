@@ -2,17 +2,24 @@ import { useState, useRef, useEffect } from 'react';
 import { Phone, Video, MoreVertical, Send, Smile, Paperclip, Users } from 'lucide-react';
 import { format } from 'date-fns';
 import type { User, Message, Group } from '../types/chat';
+import GroupCall from './call';
 
 interface ChatAreaProps {
     currentUser: User | null;
     activeUser: User | null;
     activeGroup: Group | null;
+    activeConvId: string | null;
     messages: Message[];
     loading: boolean;
     onSendMessage: (text: string) => void;
+    showCall: boolean;
+    setShowCall: (show: boolean) => void;
+    callType: 'audio' | 'video';
+    onStartCall: (roomName: string) => void;
+    onStartVideoCall: (roomName: string) => void;
 }
 
-export function ChatArea({ currentUser, activeUser, activeGroup, messages, loading, onSendMessage }: ChatAreaProps) {
+export function ChatArea({ currentUser, activeUser, activeGroup, activeConvId, messages, loading, onSendMessage, showCall, setShowCall, callType, onStartCall, onStartVideoCall }: ChatAreaProps) {
     const [inputValue, setInputValue] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -20,10 +27,11 @@ export function ChatArea({ currentUser, activeUser, activeGroup, messages, loadi
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
-    // Clear input when conversation changes
+    // Clear input and call state when conversation changes
     useEffect(() => {
         setInputValue('');
-    }, [activeUser?.id, activeGroup?.id]);
+        setShowCall(false);
+    }, [activeUser?.id, activeGroup?.id, setShowCall]);
 
     const handleSendMessage = () => {
         if (!inputValue.trim()) return;
@@ -79,66 +87,99 @@ export function ChatArea({ currentUser, activeUser, activeGroup, messages, loadi
                     </div>
                 </div>
                 <div className="header-actions">
-                    <button className="icon-btn"><Phone size={20} /></button>
-                    <button className="icon-btn"><Video size={20} /></button>
+                    <button
+                        className={`icon-btn ${showCall ? 'active' : ''}`}
+                        onClick={() => {
+                            if (!showCall) {
+                                onStartCall(activeConvId ? `conv-${activeConvId}` : 'default-room');
+                            } else {
+                                setShowCall(false);
+                            }
+                        }}
+                        style={showCall ? { color: 'var(--accent, #6c63ff)' } : {}}
+                    >
+                        <Phone size={20} />
+                    </button>
+                    <button className="icon-btn" onClick={() => {
+                        if (!showCall) {
+                            onStartVideoCall(activeConvId ? `conv-${activeConvId}` : 'default-room');
+                        } else {
+                            setShowCall(false);
+                        }
+                    }}
+                        style={showCall && callType === 'video' ? { color: 'var(--accent, #6c63ff)' } : {}}
+                    ><Video size={20} /></button>
                     <button className="icon-btn"><MoreVertical size={20} /></button>
                 </div>
             </div>
 
-            <div className="messages-container">
-                {loading && (
-                    <div className="messages-loading">
-                        <span className="spinner" />
-                        <span>Loading messages…</span>
-                    </div>
-                )}
-                {!loading && messages.length === 0 && (
-                    <div className="no-messages">
-                        <p>No messages yet. Say hello! 👋</p>
-                    </div>
-                )}
-                {messages.map(msg => {
-                    const isMe = msg.senderId === currentUser?.id;
-                    return (
-                        <div key={msg.id} className={`message-wrapper ${isMe ? 'sent' : 'received'}`}>
-                            {activeGroup && !isMe && (
-                                <div className="message-sender-name">{msg.sender?.name}</div>
-                            )}
-                            <div className="message-bubble">{msg.content}</div>
-                            <div className="message-time">
-                                {format(new Date(msg.createdAt), 'hh:mm a')}
-                            </div>
-                        </div>
-                    );
-                })}
-                <div ref={messagesEndRef} />
-            </div>
-
-            <div className="input-area">
-                <div className="input-container">
-                    <button className="icon-btn" style={{ padding: 4, marginRight: 8 }}>
-                        <Paperclip size={20} />
-                    </button>
-                    <textarea
-                        className="message-input"
-                        placeholder={activeGroup ? `Message ${headerName}…` : "Type a message..."}
-                        value={inputValue}
-                        onChange={(e) => setInputValue(e.target.value)}
-                        onKeyDown={handleKeyPress}
-                        rows={1}
+            {showCall ? (
+                <div className="call-container" style={{ flex: 1, backgroundColor: '#1e1e1e', borderRadius: '8px', margin: '10px', overflow: 'hidden' }}>
+                    <GroupCall
+                        roomName={activeConvId ? `conv-${activeConvId}` : 'default-room'}
+                        username={currentUser?.name}
+                        onLeave={() => setShowCall(false)}
+                        callType={callType}
                     />
-                    <button className="icon-btn" style={{ padding: 4, marginRight: 8 }}>
-                        <Smile size={20} />
-                    </button>
-                    <button
-                        className="send-btn"
-                        onClick={handleSendMessage}
-                        disabled={!inputValue.trim()}
-                    >
-                        <Send size={18} style={{ marginLeft: -2 }} />
-                    </button>
                 </div>
-            </div>
+            ) : (
+                <>
+                    <div className="messages-container">
+                        {loading && (
+                            <div className="messages-loading">
+                                <span className="spinner" />
+                                <span>Loading messages…</span>
+                            </div>
+                        )}
+                        {!loading && messages.length === 0 && (
+                            <div className="no-messages">
+                                <p>No messages yet. Say hello! 👋</p>
+                            </div>
+                        )}
+                        {messages.map(msg => {
+                            const isMe = msg.senderId === currentUser?.id;
+                            return (
+                                <div key={msg.id} className={`message-wrapper ${isMe ? 'sent' : 'received'}`}>
+                                    {activeGroup && !isMe && (
+                                        <div className="message-sender-name">{msg.sender?.name}</div>
+                                    )}
+                                    <div className="message-bubble">{msg.content}</div>
+                                    <div className="message-time">
+                                        {format(new Date(msg.createdAt), 'hh:mm a')}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        <div ref={messagesEndRef} />
+                    </div>
+
+                    <div className="input-area">
+                        <div className="input-container">
+                            <button className="icon-btn" style={{ padding: 4, marginRight: 8 }}>
+                                <Paperclip size={20} />
+                            </button>
+                            <textarea
+                                className="message-input"
+                                placeholder={activeGroup ? `Message ${headerName}…` : "Type a message..."}
+                                value={inputValue}
+                                onChange={(e) => setInputValue(e.target.value)}
+                                onKeyDown={handleKeyPress}
+                                rows={1}
+                            />
+                            <button className="icon-btn" style={{ padding: 4, marginRight: 8 }}>
+                                <Smile size={20} />
+                            </button>
+                            <button
+                                className="send-btn"
+                                onClick={handleSendMessage}
+                                disabled={!inputValue.trim()}
+                            >
+                                <Send size={18} style={{ marginLeft: -2 }} />
+                            </button>
+                        </div>
+                    </div>
+                </>
+            )}
         </div>
     );
 }

@@ -5,6 +5,7 @@ import { UsernameModal } from './components/UsernameModal';
 import type { User, Message, Group } from './types/chat';
 import { getUsers, getDmConversationId, getMessages, getGroups } from './api';
 import { io, Socket } from 'socket.io-client';
+import { IncomingCallModal } from './components/IncomingCallModal';
 
 function App() {
   const socketRef = useRef<Socket | null>(null);
@@ -23,6 +24,11 @@ function App() {
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
+
+  // Call state
+  const [showCall, setShowCall] = useState(false);
+  const [callType, setCallType] = useState<'audio' | 'video'>('audio');
+  const [incomingCall, setIncomingCall] = useState<{ roomName: string, callerName: string, callerId: string, convId?: string, isGroup: boolean, callType: 'audio' | 'video' } | null>(null);
 
   // Connect socket once on mount
   useEffect(() => {
@@ -61,6 +67,16 @@ function App() {
     };
     socketRef.current.on('joinGroup', handler);
     return () => { socketRef.current?.off('joinGroup', handler); };
+  }, []);
+
+  // Incoming call listener
+  useEffect(() => {
+    if (!socketRef.current) return;
+    const handler = (data: { roomName: string, callerName: string, callerId: string, convId?: string, isGroup: boolean, callType: 'audio' | 'video' }) => {
+      setIncomingCall(data);
+    };
+    socketRef.current.on('incoming-call', handler);
+    return () => { socketRef.current?.off('incoming-call', handler); };
   }, []);
 
   // Incoming DM messages
@@ -179,6 +195,47 @@ function App() {
     });
   }, [currentUser, activeGroup, activeConvId]);
 
+  // Start an audio call
+  const handleStartCall = useCallback((roomName: string) => {
+    if (!currentUser) return;
+    const payload = {
+      roomName, callerName: currentUser.name, callerId: currentUser.id, callType: 'audio' as const,
+      ...(activeGroup ? { convId: activeGroup.id, memberIds: activeGroup.memberIds } : { toUserId: activeUser?.id, convId: activeConvId ?? undefined }),
+    };
+    socketRef.current?.emit('call-invite', payload);
+    setCallType('audio');
+    setShowCall(true);
+  }, [currentUser, activeGroup, activeUser, activeConvId]);
+
+  // Start a video call
+  const handleStartVideoCall = useCallback((roomName: string) => {
+    if (!currentUser) return;
+    const payload = {
+      roomName, callerName: currentUser.name, callerId: currentUser.id, callType: 'video' as const,
+      ...(activeGroup ? { convId: activeGroup.id, memberIds: activeGroup.memberIds } : { toUserId: activeUser?.id, convId: activeConvId ?? undefined }),
+    };
+    socketRef.current?.emit('call-invite', payload);
+    setCallType('video');
+    setShowCall(true);
+  }, [currentUser, activeGroup, activeUser, activeConvId]);
+
+  // Accept incoming call
+  const handleAcceptCall = useCallback(async () => {
+    if (!incomingCall || !currentUser) return;
+
+    if (incomingCall.isGroup && incomingCall.convId) {
+      const group = groups.find(g => g.id === incomingCall.convId);
+      if (group) await handleSelectGroup(group);
+    } else {
+      const user = users.find(u => u.id === incomingCall.callerId);
+      if (user) await handleSelectUser(user);
+    }
+
+    setCallType(incomingCall.callType);
+    setShowCall(true);
+    setIncomingCall(null);
+  }, [incomingCall, currentUser, groups, users, handleSelectGroup, handleSelectUser]);
+
   return (
     <>
       {!currentUser && <UsernameModal onRegistered={handleRegistered} />}
@@ -198,11 +255,27 @@ function App() {
           currentUser={currentUser}
           activeUser={activeUser}
           activeGroup={activeGroup}
+          activeConvId={activeConvId}
           messages={messages}
           loading={loadingMessages}
           onSendMessage={activeGroup ? handleSendGroupMessage : handleSendMessage}
+          showCall={showCall}
+          setShowCall={setShowCall}
+          callType={callType}
+          onStartCall={handleStartCall}
+          onStartVideoCall={handleStartVideoCall}
         />
       </div>
+
+      {incomingCall && (
+        <IncomingCallModal
+          callerName={incomingCall.callerName}
+          isGroup={incomingCall.isGroup}
+          callType={incomingCall.callType}
+          onAccept={handleAcceptCall}
+          onDecline={() => setIncomingCall(null)}
+        />
+      )}
     </>
   );
 }

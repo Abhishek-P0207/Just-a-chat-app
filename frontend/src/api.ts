@@ -63,3 +63,8 @@ export async function getGroups(userId: string): Promise<Group[]> {
         createdAt: g.createdAt,
     }));
 }
+
+export async function getToken(roomName, username) {
+    const res = await fetch(`${BASE}/call/getToken?room=${roomName}&username=${username}`);
+    return res.json();
+}

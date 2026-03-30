@@ -6,6 +6,7 @@ import { Server } from "socket.io";
 import userRoutes from "./routes/userRoutes.js";
 import conversationRoutes from "./routes/conversationRoutes.js";
 import groupsRoutes from "./routes/groupRoutes.js";
+import callRoutes from "./routes/callRoute.js";
 import { saveMessage } from "./controllers/messageController.js";
 
 const app = express();
@@ -18,6 +19,7 @@ app.use(express.json());
 app.use("/api/users", userRoutes);
 app.use("/api/conversations", conversationRoutes);
 app.use("/api/groups", groupsRoutes);
+app.use("/api/call", callRoutes);
 
 app.get("/", (_req, res) => {
     res.send("Chat API running");
@@ -102,6 +104,34 @@ io.on("connection", (socket) => {
         } catch (err) {
             console.error("Error saving group message:", err);
             socket.emit("error", "Failed to send group message.");
+        }
+    });
+
+    // Call invite: Client sends { roomName, callerName, callerId, toUserId, convId, memberIds?, callType }
+    socket.on("call-invite", ({ roomName, callerName, callerId, toUserId, convId, memberIds, callType }: {
+        roomName: string;
+        callerName: string;
+        callerId: string;
+        toUserId?: string;
+        convId?: string;
+        memberIds?: string[];
+        callType: 'audio' | 'video';
+    }) => {
+        if (toUserId) {
+            // DM call: emit directly to the recipient
+            const receiverSocket = userSocketMap.get(toUserId);
+            if (receiverSocket) {
+                io.to(receiverSocket).emit("incoming-call", { roomName, callerName, callerId, convId, isGroup: false, callType });
+            }
+        } else if (convId && memberIds) {
+            // Group call: emit directly to each online member (except caller)
+            memberIds.forEach((memberId) => {
+                if (memberId === callerId) return;
+                const memberSocketId = userSocketMap.get(memberId);
+                if (memberSocketId) {
+                    io.to(memberSocketId).emit("incoming-call", { roomName, callerName, callerId, convId, isGroup: true, callType });
+                }
+            });
         }
     });
 
