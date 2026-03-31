@@ -560,6 +560,48 @@ body {
   margin-bottom: 8px;
 }
 
+/* Auth mode tabs */
+.modal-tabs {
+  display: flex;
+  width: 100%;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-md);
+  padding: 4px;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.modal-tab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 9px;
+  border-radius: calc(var(--border-radius-md) - 2px);
+  cursor: pointer;
+  transition: all var(--transition-speed) ease;
+}
+
+.modal-tab:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.modal-tab--active {
+  background: var(--accent-color);
+  color: white;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+}
+
+.modal-tab--active:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
 .modal-input-wrapper {
   width: 100%;
   display: flex;

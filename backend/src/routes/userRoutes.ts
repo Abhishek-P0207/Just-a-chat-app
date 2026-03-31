@@ -8,12 +8,13 @@ const router: IRouter = Router();
 
 // POST /api/users/register — register or retrieve a user by name
 router.post("/register", async (req, res) => {
-    const { name } = req.body as { name?: string };
+    const { name, password } = req.body as { name?: string, password: string };
     if (!name || name.trim().length < 2) {
         res.status(400).json({ error: "Name must be at least 2 characters." });
         return;
     }
-    const user = await registerUser(name.trim());
+
+    const user = await registerUser(name.trim(), password);
     res.json(user);
 });
 

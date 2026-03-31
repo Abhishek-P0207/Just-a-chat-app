@@ -1,6 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import { createServer } from "node:http";
 import { Server } from "socket.io";
 import userRoutes from "./routes/userRoutes.js";
@@ -8,18 +9,20 @@ import conversationRoutes from "./routes/conversationRoutes.js";
 import groupsRoutes from "./routes/groupRoutes.js";
 import callRoutes from "./routes/callRoute.js";
 import { saveMessage } from "./controllers/messageController.js";
+import { verifyJwt } from "./middlewares/auth.js";
 
 const app = express();
 const httpServer = createServer(app);
 
-app.use(cors({ origin: "http://localhost:5173" }));
+app.use(cors({ origin: "http://localhost:5173", credentials: true }));
+app.use(cookieParser());
 app.use(express.json());
 
 // REST routes
 app.use("/api/users", userRoutes);
-app.use("/api/conversations", conversationRoutes);
-app.use("/api/groups", groupsRoutes);
-app.use("/api/call", callRoutes);
+app.use("/api/conversations", verifyJwt, conversationRoutes);
+app.use("/api/groups", verifyJwt, groupsRoutes);
+app.use("/api/call", verifyJwt, callRoutes);
 
 app.get("/", (_req, res) => {
     res.send("Chat API running");

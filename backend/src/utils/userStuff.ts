@@ -9,3 +9,10 @@ export async function checkUsernameIsUnique(name: string){
     if(!user) return true;
     return false;
 }
+
+export async function checkUserExistsById(id: string) {
+    const user = await prisma.user.findUnique({
+        where: {id}
+    })
+    return user;
+}

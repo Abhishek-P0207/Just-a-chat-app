@@ -1,7 +1,9 @@
 import {prisma} from "../db.js";
 import bcrypt from 'bcrypt';
 
-export async function registerUser(name: string, hash: string) {
+export async function registerUser(name: string, password: string) {
+    const salt = await bcrypt.genSalt(10);
+    const hash = await bcrypt.hash(password, salt);
     return prisma.user.upsert({
         where: { name },
         update: {},
