@@ -1,8 +1,9 @@
 import jwt from "jsonwebtoken";
+import type { Request, Response, NextFunction } from "express";
 import { checkUserExistsById } from "../utils/userStuff.js";
 
 
-export async function verifyJwt(req, res, next) {
+export async function verifyJwt(req: Request, res: Response, next: NextFunction) {
     try {
         const token = req.cookies?.accessToken;
 
@@ -13,7 +14,7 @@ export async function verifyJwt(req, res, next) {
         const decoded = jwt.verify(token, process.env.JWT_SECRET!)
         const user = await checkUserExistsById(decoded.sub as string)
         if (!user) throw new Error("Invalid Access Token");
-        req.user = user;
+        (req as any).user = user;
 
         return next();
     } catch (error: any) {

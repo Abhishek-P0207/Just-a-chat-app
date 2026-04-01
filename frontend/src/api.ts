@@ -99,7 +99,7 @@ export async function getGroups(userId: string): Promise<Group[]> {
     }));
 }
 
-export async function getToken(roomName, username) {
+export async function getToken(roomName: string, username: string) {
     const res = await fetch(`${BASE}/call/getToken?room=${roomName}&username=${username}`, {
         credentials: "include",
     });
