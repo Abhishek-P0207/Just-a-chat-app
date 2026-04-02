@@ -1,6 +1,6 @@
 import type { User, Message, Group } from "./types/chat";
 
-const BASE = "http://localhost:3000/api";
+const BASE = import.meta.env.VITE_BASE_SERVER_URL+"/api";
 
 export async function registerUser(name: string, password: string): Promise<User> {
     const res = await fetch(`${BASE}/users/register`, {
