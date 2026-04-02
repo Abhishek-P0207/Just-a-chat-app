@@ -10,24 +10,19 @@ import groupsRoutes from "./routes/groupRoutes.js";
 import callRoutes from "./routes/callRoute.js";
 import { saveMessage } from "./controllers/messageController.js";
 import { verifyJwt } from "./middlewares/auth.js";
-
 const app = express();
 const httpServer = createServer(app);
-
 app.use(cors({ origin: "http://localhost:5173", credentials: true }));
 app.use(cookieParser());
 app.use(express.json());
-
 // REST routes
 app.use("/api/users", userRoutes);
 app.use("/api/conversations", verifyJwt, conversationRoutes);
 app.use("/api/groups", verifyJwt, groupsRoutes);
 app.use("/api/call", verifyJwt, callRoutes);
-
 app.get("/", (_req, res) => {
     res.send("Chat API running");
 });
-
 // --- Socket.IO ---
 const io = new Server(httpServer, {
     cors: {
@@ -35,28 +30,19 @@ const io = new Server(httpServer, {
         methods: ["GET", "POST"],
     },
 });
-
 // Maps userId → socketId
-const userSocketMap = new Map<string, string>();
-
+const userSocketMap = new Map();
 io.on("connection", (socket) => {
     console.log("Socket connected:", socket.id);
-
     // Client sends userId after logging in
-    socket.on("register", (userId: string) => {
+    socket.on("register", (userId) => {
         userSocketMap.set(userId, socket.id);
         console.log(`User ${userId} registered with socket ${socket.id}`);
         io.emit("onlineUsers", Array.from(userSocketMap.keys()));
     });
-
     // Client sends { groupId, name, members } after creating a group
-    socket.on("createGroup", ({ groupId, name, members }: {
-        groupId: string;
-        name: string;
-        members: string[];
-    }) => {
+    socket.on("createGroup", ({ groupId, name, members }) => {
         console.log(`Group ${groupId} (${name}) created with members:`, members);
-
         // Make every online member's socket join the Socket.IO room for this group
         members.forEach((memberId) => {
             const memberSocketId = userSocketMap.get(memberId);
@@ -65,71 +51,51 @@ io.on("connection", (socket) => {
                 memberSocket?.join(groupId);
             }
         });
-
         // Notify each member that they've been added to this group
         io.to(groupId).emit("joinGroup", { id: groupId, name, memberIds: members });
     });
-
     // DM: Client sends { convId, content, senderId, toUserId }
-    socket.on("chat", async ({ convId, content, senderId, toUserId }: {
-        convId: string;
-        content: string;
-        senderId: string;
-        toUserId: string;
-    }) => {
+    socket.on("chat", async ({ convId, content, senderId, toUserId }) => {
         try {
             const message = await saveMessage(convId, senderId, content);
-
             const receiverSocket = userSocketMap.get(toUserId);
             if (receiverSocket) {
                 io.to(receiverSocket).emit("chat", message);
             }
-
             // Echo to sender
             socket.emit("chat", message);
-        } catch (err) {
+        }
+        catch (err) {
             console.error("Error saving message:", err);
             socket.emit("error", "Failed to send message.");
         }
     });
-
     // Group chat: Client sends { convId, content, senderId }
-    socket.on("group-chat", async ({ convId, content, senderId }: {
-        convId: string;
-        content: string;
-        senderId: string;
-    }) => {
+    socket.on("group-chat", async ({ convId, content, senderId }) => {
         try {
             const message = await saveMessage(convId, senderId, content);
-
             // Broadcast to all members in the room (includes sender's socket)
             io.to(convId).emit("group-chat", message);
-        } catch (err) {
+        }
+        catch (err) {
             console.error("Error saving group message:", err);
             socket.emit("error", "Failed to send group message.");
         }
     });
-
     // Call invite: Client sends { roomName, callerName, callerId, toUserId, convId, memberIds?, callType }
-    socket.on("call-invite", ({ roomName, callerName, callerId, toUserId, convId, memberIds, callType }: {
-        roomName: string;
-        callerName: string;
-        callerId: string;
-        toUserId?: string;
-        convId?: string;
-        memberIds?: string[];
-        callType: 'audio' | 'video';
-    }) => {
+    socket.on("call-invite", ({ roomName, callerName, callerId, toUserId, convId, memberIds, callType }) => {
         if (toUserId) {
             // DM call: emit directly to the recipient
             const receiverSocket = userSocketMap.get(toUserId);
             if (receiverSocket) {
                 io.to(receiverSocket).emit("incoming-call", { roomName, callerName, callerId, convId, isGroup: false, callType });
             }
-        } else if (convId && memberIds) {
+        }
+        else if (convId && memberIds) {
             // Group call: emit directly to each online member (except caller)
             memberIds.forEach((memberId) => {
-                if (memberId === callerId) return;
+                if (memberId === callerId)
+                    return;
                 const memberSocketId = userSocketMap.get(memberId);
                 if (memberSocketId) {
                     io.to(memberSocketId).emit("incoming-call", { roomName, callerName, callerId, convId, isGroup: true, callType });
@@ -137,7 +103,6 @@ io.on("connection", (socket) => {
             });
         }
     });
-
     socket.on("disconnect", () => {
         for (const [userId, sid] of userSocketMap.entries()) {
             if (sid === socket.id) {
@@ -149,7 +114,7 @@ io.on("connection", (socket) => {
         io.emit("onlineUsers", Array.from(userSocketMap.keys()));
     });
 });
-
 httpServer.listen(process.env.PORT || 3000, () => {
     console.log("Server running on port", process.env.PORT);
 });
+//# sourceMappingURL=index.js.map
