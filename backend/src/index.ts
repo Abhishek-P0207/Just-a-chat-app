@@ -14,7 +14,7 @@ import { verifyJwt } from "./middlewares/auth.js";
 const app = express();
 const httpServer = createServer(app);
 
-app.use(cors({ origin: "http://localhost:5173", credentials: true }));
+app.use(cors({ origin: process.env.FRONTEND_URL, credentials: true }));
 app.use(cookieParser());
 app.use(express.json());
 
@@ -31,7 +31,7 @@ app.get("/", (_req, res) => {
 // --- Socket.IO ---
 const io = new Server(httpServer, {
     cors: {
-        origin: "http://localhost:5173",
+        origin: process.env.FRONTEND_URL,
         methods: ["GET", "POST"],
     },
 });
