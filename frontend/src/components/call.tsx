@@ -14,7 +14,7 @@ export default function GroupCall({ roomName, username, onLeave, callType }: {
     useEffect(() => {
         const getAcessToken = async () => {
             try {
-                const response = await getToken(roomName, username);
+                const response = await getToken(roomName, username as string);
                 setToken(response.token);
             } catch (err) {
                 console.error("Failed to fetch token", err);

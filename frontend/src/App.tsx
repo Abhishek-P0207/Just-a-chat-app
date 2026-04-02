@@ -32,7 +32,7 @@ function App() {
 
   // Connect socket once on mount
   useEffect(() => {
-    socketRef.current = io('http://localhost:3000');
+    socketRef.current = io(import.meta.env.VITE_BASE_SERVER_URL);
     return () => {
       socketRef.current?.disconnect();
     };
